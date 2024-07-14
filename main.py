@@ -40,9 +40,12 @@ def run_screen(stock_symbol):
 
     high = hist["Close"].max()
     low = hist["Close"].min()
-    low_period_low = hist["Close"].nlargest(LOW_PERIOD).min()
+    time_of_low = hist["Close"].idxmin()
 
-    if high >= low * 2 and hist["Close"].idxmin() > hist.index[-LOW_PERIOD]:
+    print(f"Processing {stock_symbol} - High: {high}, Low: {low}, Time of low: {time_of_low}")
+    print('Index: ',hist.index[-LOW_PERIOD])
+    
+    if high >= low * 2 and time_of_low >= hist.index[-LOW_PERIOD]:
         return stock_symbol
     return None
 
