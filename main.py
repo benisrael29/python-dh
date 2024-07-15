@@ -5,9 +5,11 @@ import os
 from tqdm import tqdm
 
 ########## Constants ##########
-PERIOD = "max"  # The period to consider for the historical data
-LOW_PERIOD = 30  # Number of days to consider for the lowest Close price
 
+PERIOD = input("Enter the period to consider for the historical data must be one of ('1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'ytd', 'max'): ")
+LOW_PERIOD = int(input("Enter the number of days to consider for the lowest Close price: "))
+
+####### Immutable ###########
 MAX_WORKERS = 30  # Number of threads to run in parallel
 
 ########## Screens ##########
@@ -65,36 +67,38 @@ def run_screen(stock_symbol):
     return None
 
 ########## Main ##########
+try:
+    # Get all the stocks
+    stocks = get_all_stocks()
 
-# Get all the stocks
-stocks = get_all_stocks()
+    # Append .AX to the stock names to comply with Yahoo Finance
+    stocks = [stock + ".AX" for stock in stocks]
 
-# Append .AX to the stock names to comply with Yahoo Finance
-stocks = [stock + ".AX" for stock in stocks]
+    print(f"Total stocks to process: {len(stocks)}")
 
-print(f"Total stocks to process: {len(stocks)}")
+    # Use ThreadPoolExecutor to run the screen in parallel
+    buys = []
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        future_to_stock = {executor.submit(run_screen, stock): stock for stock in stocks}
+        with tqdm(total=len(stocks), desc="Processing stocks", unit="stock") as pbar:
+            for future in as_completed(future_to_stock):
+                result = future.result()
+                if result is not None:
+                    buys.append(result)
+                pbar.update(1)
 
-# Use ThreadPoolExecutor to run the screen in parallel
-buys = []
-with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-    future_to_stock = {executor.submit(run_screen, stock): stock for stock in stocks}
-    with tqdm(total=len(stocks), desc="Processing stocks", unit="stock") as pbar:
-        for future in as_completed(future_to_stock):
-            result = future.result()
-            if result is not None:
-                buys.append(result)
-            pbar.update(1)
+    # Format the list of buys
+    buys = ['ASX:' + stock.replace('.AX', '') for stock in buys]
 
-# Format the list of buys
-buys = ['ASX:' + stock.replace('.AX', '') for stock in buys]
+    # Convert the list to a single string with comma separation
+    buys_string = ','.join(buys)
 
-# Convert the list to a single string with comma separation
-buys_string = ','.join(buys)
+    # Save the string to a text file
+    output_dir = 'output'
+    os.makedirs(output_dir, exist_ok=True)
+    with open(os.path.join(output_dir, 'watchlist.txt'), 'w') as file:
+        file.write(buys_string)
 
-# Save the string to a text file
-output_dir = 'output'
-os.makedirs(output_dir, exist_ok=True)
-with open(os.path.join(output_dir, 'watchlist.txt'), 'w') as file:
-    file.write(buys_string)
-
-print(f"Buy list: {buys_string}")
+    print(f"Buy list: {buys_string}")
+except Exception as e:
+    print(f"An unexpected error occurred. Please contact Ben: {e}")
