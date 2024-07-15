@@ -1,12 +1,14 @@
 import yfinance as yf
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import os
+from tqdm import tqdm
 
 ########## Constants ##########
-PERIOD = "max" # The period to consider for the historical data
-LOW_PERIOD = 30 # Number of days to consider for the lowest Close price
+PERIOD = "max"  # The period to consider for the historical data
+LOW_PERIOD = 30  # Number of days to consider for the lowest Close price
 
-MAX_WORKERS = 30 # Number of threads to run in parallel
+MAX_WORKERS = 30  # Number of threads to run in parallel
 
 ########## Screens ##########
 
@@ -16,10 +18,26 @@ def get_all_stocks():
     Returns:
         list: A list of ASX stock tickers.
     """
-    data = pd.read_csv("data/ASX_Listed_Companies.csv")
+    # Get list of files in the data directory
+    files = os.listdir("data")
+    csv_files = [file for file in files if file.endswith(".csv")]
+
+    # Check if there is exactly one CSV file
+    if len(csv_files) != 1:
+        print('There must be exactly one CSV file in the data directory. Please check the data directory and try again.')
+        raise FileNotFoundError("There must be exactly one CSV file in the 'data' directory.")
+    
+    # Read the CSV file
+    file_path = os.path.join("data", csv_files[0])
+    data = pd.read_csv(file_path)
+    
+    # Check if the CSV file contains the 'ASX code' column
+    if 'ASX code' not in data.columns:
+        print('The CSV file does not contain the required "ASX code" column. Please check the CSV file and try again.')
+        raise ValueError("The CSV file does not contain the required 'ASX code' column.")
+    
     tickers = data["ASX code"].tolist()
     return tickers
-
 
 def run_screen(stock_symbol):
     """
@@ -42,13 +60,9 @@ def run_screen(stock_symbol):
     low = hist["Close"].min()
     time_of_low = hist["Close"].idxmin()
 
-    print(f"Processing {stock_symbol} - High: {high}, Low: {low}, Time of low: {time_of_low}")
-    print('Index: ',hist.index[-LOW_PERIOD])
-    
     if high >= low * 2 and time_of_low >= hist.index[-LOW_PERIOD]:
         return stock_symbol
     return None
-
 
 ########## Main ##########
 
@@ -64,11 +78,12 @@ print(f"Total stocks to process: {len(stocks)}")
 buys = []
 with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
     future_to_stock = {executor.submit(run_screen, stock): stock for stock in stocks}
-    for i, future in enumerate(as_completed(future_to_stock), 1):
-        result = future.result()
-        if result is not None:
-            buys.append(result)
-        print(f"Processed {i}/{len(stocks)} stocks")
+    with tqdm(total=len(stocks), desc="Processing stocks", unit="stock") as pbar:
+        for future in as_completed(future_to_stock):
+            result = future.result()
+            if result is not None:
+                buys.append(result)
+            pbar.update(1)
 
 # Format the list of buys
 buys = ['ASX:' + stock.replace('.AX', '') for stock in buys]
@@ -77,7 +92,9 @@ buys = ['ASX:' + stock.replace('.AX', '') for stock in buys]
 buys_string = ','.join(buys)
 
 # Save the string to a text file
-with open('output/watchlist.txt', 'w') as file:
+output_dir = 'output'
+os.makedirs(output_dir, exist_ok=True)
+with open(os.path.join(output_dir, 'watchlist.txt'), 'w') as file:
     file.write(buys_string)
 
 print(f"Buy list: {buys_string}")
