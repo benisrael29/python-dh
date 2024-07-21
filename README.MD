@@ -7,3 +7,8 @@
 (format eg.. 
 ASX:14D
 )
+
+# To update the listed company data
+
+- Navigate to https://www.asx.com.au/markets/trade-our-cash-market/directory and download the CSV
+- Upload it into data folder. 

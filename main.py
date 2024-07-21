@@ -5,7 +5,12 @@ import os
 from tqdm import tqdm
 
 ########## Constants ##########
-
+print("=====================================================================================================")
+print("Welcome to this ASX stock screener. \n This program will screen all ASX stocks and generate a watchlist of stocks that meet the following criteria:")
+print("- The highest Close price is at least double the lowest Close price.")
+print("- The lowest Close price occurred in the last LOW_PERIOD days.")
+print("Please enter the following details to start the screening process.")
+print("=====================================================================================================")
 PERIOD = input("Enter the period to consider for the historical data must be one of ('1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', '10y', 'ytd', 'max'): ")
 LOW_PERIOD = int(input("Enter the number of days to consider for the lowest Close price: "))
 
@@ -101,4 +106,4 @@ try:
 
     print(f"Buy list: {buys_string}")
 except Exception as e:
-    print(f"An unexpected error occurred. Please contact Ben: {e}")
+    print(f"An unexpected error occurred. Please contact Ben (ph: 0487631858): {e}")
