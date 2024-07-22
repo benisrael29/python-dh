@@ -3,6 +3,9 @@ import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 from tqdm import tqdm
+import requests
+import io
+import datetime
 
 ########## Constants ##########
 print("=====================================================================================================")
@@ -18,6 +21,46 @@ LOW_PERIOD = int(input("Enter the number of days to consider for the lowest Clos
 MAX_WORKERS = 30  # Number of threads to run in parallel
 
 ########## Screens ##########
+def download_csv():
+    """
+    Download a CSV file from a URL and save it locally.
+
+    :param url: str, URL of the CSV file to download
+    :param local_filename: str, Local path to save the downloaded CSV file
+    """
+
+    # URL of the CSV file
+    url = 'https://asx.api.markitdigital.com/asx-research/1.0/companies/directory/file'
+
+    # Local filename to save the downloaded CSV using current date
+    local_filename = 'data/asx_directory_' + datetime.datetime.now().strftime('%Y-%m-%d') + '.csv'
+
+
+    try:
+        # Send a GET request to the URL
+        response = requests.get(url)
+
+        # Check if the request was successful
+        if response.status_code == 200:
+            # Decode the content and load it into a pandas DataFrame
+            csv_content = response.content.decode('utf-8')
+            data = pd.read_csv(io.StringIO(csv_content))
+            
+            #Move all data in data folder to data/old folder
+            os.makedirs("data/old", exist_ok=True)
+            files = os.listdir("data")
+            for file in files:
+                if file.endswith(".csv"):
+                    os.rename(f"data/{file}", f"data/old/{file}")
+
+            # Save DataFrame to a local CSV file
+            data.to_csv(local_filename, index=False)
+            print(f'CSV file downloaded and saved as {local_filename}')
+        else:
+            print(f'Failed to download the file: {response.status_code}')
+    except Exception as e:
+        print(f'An error occurred: {e}')
+
 
 def get_all_stocks():
     """
@@ -25,6 +68,12 @@ def get_all_stocks():
     Returns:
         list: A list of ASX stock tickers.
     """
+    #try downloading the csv file
+    try:
+        download_csv()
+    except Exception as e:
+        print("Unable to download the CSV file. Using the existing CSV file in the data directory.")
+
     # Get list of files in the data directory
     files = os.listdir("data")
     csv_files = [file for file in files if file.endswith(".csv")]
@@ -37,6 +86,7 @@ def get_all_stocks():
     # Read the CSV file
     file_path = os.path.join("data", csv_files[0])
     data = pd.read_csv(file_path)
+
     
     # Check if the CSV file contains the 'ASX code' column
     if 'ASX code' not in data.columns:
